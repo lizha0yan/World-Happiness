@@ -27,9 +27,10 @@ Model fits data well without significant outliers
 14th and 96th data have the largest influence
 # Model Validation
 Overview data between 2015 and 2016
+
 Use linear regression model to predict 2016 data
 
-Some sample graphs:
+# Some sample graphs:
 ![alt text](https://github.com/lizha0yan/World-Happiness/blob/master/Graphs/HS_vs_Predictor.png)
 ![alt text](https://github.com/lizha0yan/World-Happiness/blob/master/Graphs/HSworldmap2016.png)
 ![alt text](https://github.com/lizha0yan/World-Happiness/blob/master/Graphs/Residual%20Analysis.png)
