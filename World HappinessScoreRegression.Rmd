@@ -1,0 +1,302 @@
+## Step 1 - Collecting Data ---- 
+The Happiness Scores and Ranking Data was collected from Kaggle.com from the following links:   
+https://www.kaggle.com/unsdsn/world-happiness/downloads/2015.csv  
+https://www.kaggle.com/unsdsn/world-happiness/downloads/2016.csv  
+The scores are based on answers to the main life evaluation question asked in the poll. This question, known as the Cantril ladder, asks respondents to think of a ladder with the best possible life for them being a 10 and the worst possible life being a 0 and to rate their own current lives on that scale. The scores are from nationally representative samples for the years 2013-2015 and use the Gallup weights to make the estimates representative. The columns following the happiness score estimate the extent to which each of six factors ¨C economic production, social support, life expectancy, freedom, absence of corruption, and generosity ¨C contribute to making life evaluations higher in each country than they are in Dystopia, a hypothetical country that has values equal to the world¡¯s lowest national averages for each of the six factors. 
+
+## Step 2: Exploring and preparing the data ---- 
+## 2015 DATA ##
+Import data and look into it, rename the attributes.
+```{r}
+# Sunny's working directory
+#setwd("~/Babylam/CSUEB/2017 Spring/STAT 6509/project")
+# Sherry's working directory
+#setwd("~/Documents/6509")
+#Zhaoyan's working directory
+setwd("C:/Users/document")
+raw <- read.csv("2015.csv")
+summary(raw)
+library(readxl)
+happy15_original = read_excel("2015.xlsx")
+#str(happy15_original)
+happy15_ml = happy15_original[,c(1,5:13)]
+colnames(happy15_ml) <- c("Region","HScore", "LogGDP", "socialSupport", "Health", "Freedom", "Generosity","GovernmentTrust","positiveAffect","negativeAffect")
+summary(happy15_ml[,-c(1)])
+happy15_ml = na.exclude(happy15_ml)
+happy15 = happy15_ml[,-c(1)]
+#str(happy15)
+summary(happy15)
+```
+
+
+
+Diagnostics for predictor variables
+```{r}
+par(mfrow=c(2,2))
+boxplot(happy15$LogGDP, xlab = "LogGDP")
+hist(happy15$LogGDP, xlab = "LogGDP",main ="")
+boxplot(happy15$socialSupport, xlab = "socialSupport")
+hist(happy15$socialSupport, xlab = "socialSupport",main ="")
+boxplot(happy15$Health, xlab = "Health")
+hist(happy15$Health, xlab = "Health",main ="")
+boxplot(happy15$Freedom, xlab = "Freedom")
+hist(happy15$Freedom, xlab = "Freedom",main ="")
+boxplot(happy15$GovernmentTrust, xlab = "GovernmentTrust")
+hist(happy15$GovernmentTrust, xlab = "GovernmentTrust",main ="")
+boxplot(happy15$Generosity, xlab = "Generosity")
+hist(happy15$Generosity, xlab = "Generosity",main ="")
+boxplot(happy15$positiveAffect, xlab = "positiveAffect")
+hist(happy15$positiveAffect, xlab = "positiveAffect",main ="")
+boxplot(happy15$negativeAffect,xlab="negativeAffect")
+hist(happy15$negativeAffect,xlab = "negativeAffect",main ="")
+```
+
+
+
+Correlation test between Happiness score and all other variables. Visualization of correlation between variables and Happiness score. 
+```{r}
+# eliminate Country name, region, happiness rank, lower & upper confidence interval
+library(psych)
+print(corr.test(happy15, y = NULL, use = "pairwise",method="pearson",adjust="holm",alpha=.05), short = FALSE)
+library(corrplot)
+# Correlation plot to visualize data
+cormatrix <- cor(as.matrix(happy15))
+corrplot(cormatrix,method = "square")
+library(psych)
+pairs.panels(data.frame(happy15$HScore,happy15$LogGDP,happy15$socialSupport,happy15$Health,happy15$Freedom,happy15$GovernmentTrust,happy15$Generosity,happy15$positiveAffect,happy15$negativeAffect))
+```
+AIC test
+```{r}
+# from 1 to all interactions
+null <- lm(happy15$HScore~1,data = happy15)
+full <- lm(happy15$HScore~.^2,data = happy15)
+step(null,scope = list(lower = null,upper =full),direction = 'forward')
+```
+
+Compare models:  
+```{r}
+# lowest AIC model
+# model AIC: HScore =LogGDP + positiveAffect + socialSupport + Freedom + Health + LogGDP*positiveAffect + positiveAffect*Health + socialSupport*Freedom
+happy15_lmAIC = lm(HScore ~ LogGDP + positiveAffect + socialSupport + Freedom + 
+    Health + LogGDP*positiveAffect + positiveAffect*Health + socialSupport*Freedom,data = happy15)
+summary(happy15_lmAIC)
+# additive model with ALL interactions
+# model 1: HScore = LogGDP+socialSupport+Health+Freedom+GovernmentTrust+Generosity+positiveAffect+negativeAffect+LogGDP*socialSupport+LogGDP*Health+LogGDP*Freedom+LogGDP*GovernmentTrust+LogGDP*Generosity+LogGDP*positiveAffect+LogGDP*negativeAffect+socialSupport*Health+socialSupport*Freedom+socialSupport*GovernmentTrust+socialSupport*Generosity+socialSupport*positiveAffect+socialSupport*negativeAffect+Health*Freedom+Health*GovernmentTrust+Health*Generosity+Health*positiveAffect+Health*negativeAffect+GovernmentTrust*Generosity+GovernmentTrust*positiveAffect+GovernmentTrust*negativeAffect+positiveAffect*negativeAffect [8 factors with interactions]
+happy15_lm1 = lm(HScore~.^2, data=happy15)
+summary(happy15_lm1)
+# additive model with ALL significant correlation predictors
+# model 2: HScore = LogGDP+socialSupport+Health+Freedom+GovernmentTrust+Generosity+positiveAffect+negativeAffect+LogGDP*socialSupport+LogGDP*Health+LogGDP*Freedom+LogGDP*GovernmentTrust+LogGDP*positiveAffect++LogGDP*negativeAffect+socialSupport*Health+socialSupport*Freedom+socialSupport*GovernmentTrust+socialSupport*Generosity+socialSupport*positiveAffect+socialSupport*negativeAffect+Health*Freedom+Health*GovernmentTrust+Health*positiveAffect+Health*negativeAffect+Freedom*GovernmentTrust+Freedom*Generosity+Freedom*positiveAffect+Freedom*negativeAffect+GovernmentTrust*Generosity+GovernmentTrust*positiveAffect+GovernmentTrust*negativeAffect+Generosity*positiveAffect+positiveAffect*negativeAffect
+happy15_lm2 = lm(HScore~LogGDP+socialSupport+Health+Freedom+GovernmentTrust+Generosity+positiveAffect+negativeAffect+
+                LogGDP*socialSupport+LogGDP*Health+LogGDP*Freedom+LogGDP*GovernmentTrust+LogGDP*positiveAffect+LogGDP*negativeAffect+
+                   socialSupport*Health+socialSupport*Freedom+socialSupport*GovernmentTrust+socialSupport*positiveAffect+socialSupport*negativeAffect+
+                   Health*Freedom+Health*GovernmentTrust+Health*positiveAffect+Health*negativeAffect+Freedom*GovernmentTrust+Freedom*Generosity+Freedom*positiveAffect+Freedom*negativeAffect+
+                   Generosity*GovernmentTrust+Generosity*positiveAffect+Generosity*negativeAffect+
+                   GovernmentTrust*positiveAffect+GovernmentTrust*negativeAffect+positiveAffect*negativeAffect,data = happy15)
+summary(happy15_lm2)
+anova(happy15_lm1,happy15_lm2)
+# additive model
+# model 3: HScore = LogGDP+socialSupport+Health+Freedom+GovernmentTrust+Generosity+positiveAffect+negativeAffect [8 factors]
+happy15_lm3 = lm(HScore~LogGDP+socialSupport+Health+Freedom+GovernmentTrust+Generosity+positiveAffect+negativeAffect,data = happy15)
+summary(happy15_lm3)
+anova(happy15_lm2,happy15_lm3)
+# additive model - freedom - generosity - negative effect
+# model 4: HScore = LogGDP+socialSupport+Health+GovernmentTrust+positiveAffect  [5 factors]
+happy15_lm4 = lm(HScore~LogGDP+socialSupport+Health+GovernmentTrust+positiveAffect,data = happy15)
+summary(happy15_lm4)
+anova(happy15_lm3,happy15_lm4)
+# additive model - freedom - generosity
+# model 5: HScore = LogGDP+socialSupport+Health+GovernmentTrust+positiveAffect+negativeAffect  [6 factors]
+happy15_lm5 = lm(HScore~LogGDP+socialSupport+Health+GovernmentTrust+positiveAffect+negativeAffect,data = happy15)
+summary(happy15_lm5)
+anova(happy15_lm3,happy15_lm5)
+# final model is happy15_lm5
+happy15_lm = happy15_lm5
+```
+
+From comparing model, the model we are going to used is  
+HScore = LogGDP+socialSupport+Health+Freedom+GovernmentTrust+Generosity+DystopiaRes  
+Residual diagnosis
+```{r}
+# plot residuals
+par(mfrow=c(2,2))
+plot(happy15_lm)
+par(mfrow=c(1,1))
+# boxplot of residuals
+#boxplot(happy15_lm$residuals, xlab = "residuals")
+# histogram for residuals 
+#hist(happy15_lm$residuals, xlab = "residuals")
+# normality test for residual => REJECT normality of error variance
+shapiro.test(happy15_lm$residuals)
+# residual plot
+library(car)
+residualPlots(happy15_lm)
+# Breush-Pagan test => REJECT constancy of error variance
+library(lmtest)
+bptest(happy15_lm)
+ncvTest(happy15_lm)
+# marginal model plots
+marginalModelPlots(happy15_lm)
+# qqPlot
+qqPlot(happy15_lm, id.n = 2)
+# outlierTest
+outlierTest(happy15_lm)
+# infludenceIndexPlot
+influenceIndexPlot(happy15_lm, id.n=2)
+# influencePlot
+influencePlot(happy15_lm)
+```
+
+World map to visualized the data
+```{r}
+library(ggplot2)
+library(dplyr)
+library(highcharter)
+library(formattable)
+library(plotly)
+library(countrycode)
+library(maps)
+library(readr)
+X2015 <- read_csv("2015.csv")
+summary(X2015)
+happy15_map <- X2015[,c(1,4)]
+colnames(happy15_map) <- c("Country", "HScore")
+# correct country name from database
+happy15_map$Country<-as.character(happy15_map$Country)
+correction15<-c("Congo (Brazzaville)"="Democratic Republic of the Congo","Guinea"="Equatorial Guinea","North Cyprus"="Northern Cyprus","Serbia"="Republic of Serbia","Congo (Brazzaville)"="Republic of Congo","Somaliland region"="Somaliland","Tanzania"="United Republic of Tanzania","United States Minor Outlying Islands"="United States","United States"="United States of America","United States"="United States Virgin Islands","Russia"="Russian Federation","Venezuela"="Venezuela, Bolivarian Republic of","Bolivia"="Bolivia (Plurinational State of)" )
+for(i in names(correction15)){
+  happy15_map[happy15_map$Country==i,"Country"]<-correction15[i]
+}
+# match country name along iso3 code
+countrycode_data$country.name.en<-as.factor(countrycode_data$country.name.en)
+happy15_map$iso3<-countrycode_data[match(happy15_map$Country,countrycode_data$country.name.en),"iso3c"]
+# create the world map
+map15 <- highchart() %>% 
+  hc_add_series_map(worldgeojson, happy15_map, value = "HScore", joinBy = "iso3") %>% 
+  hc_colorAxis(min=min(happy15_map$HScore),max=max(happy15_map$HScore),minColor = "#FACFCF", maxColor = "#7569FD")%>%
+  hc_mapNavigation(enabled = TRUE) %>%
+  hc_credits(enabled = F) 
+  hc_title(text = "2015 Happiness Report World Map", style = list(color = "#2b908f", fontWeight = "bold"), map15)
+## 2016 DATA ##
+X2016 <- read_csv("2016.csv")
+happy16_map <- X2016[,c(1,4)]
+colnames(happy16_map) <- c("Country", "HScore")
+# correct country name from database
+happy16_map$Country<-as.character(happy16_map$Country)
+correction16<-c("Congo (Brazzaville)"="Democratic Republic of the Congo","Guinea"="Equatorial Guinea","North Cyprus"="Northern Cyprus","Serbia"="Republic of Serbia","Congo (Brazzaville)"="Republic of Congo","Somaliland region"="Somaliland","Tanzania"="United Republic of Tanzania","United States Minor Outlying Islands"="United States","United States"="United States of America","United States"="United States Virgin Islands","Somaliland Region"="Somaliland","Russia"="Russian Federation","Venezuela"="Venezuela, Bolivarian Republic of","Bolivia"="Bolivia (Plurinational State of)" )
+for(i in names(correction16)){
+  happy16_map[happy16_map$Country==i,"Country"]<-correction16[i]
+}
+# match country name along iso3 code
+countrycode_data$country.name.en<-as.factor(countrycode_data$country.name.en)
+happy16_map$iso3<-countrycode_data[match(happy16_map$Country,countrycode_data$country.name.en),"iso3c"]
+# create the world map
+map16 <- highchart() %>% 
+  hc_add_series_map(worldgeojson, happy16_map, value = "HScore", joinBy = "iso3") %>% 
+  hc_colorAxis(min=min(happy16_map$HScore),max=max(happy16_map$HScore),minColor = "#FACFCF", maxColor = "#7569FD")%>%
+  hc_mapNavigation(enabled = TRUE) %>%
+  hc_credits(enabled = F) 
+  hc_title(text = "2016 Happiness Report World Map", style = list(color = "#2b908f", fontWeight = "bold"), map16)
+```
+
+Box-Plots of happiness score in different regions
+```{r}
+## 2015 data ##
+plot_ly(X2015,x = X2015$Region,y=X2015$`Happiness Score`,
+        type = "box", boxpoints ="all",pointpos = -1.8, color = X2015$Region)%>%
+  layout(xaxis=list(showticklabels = FALSE),margin = list(b=100),title ="2015 Happiness.Score by Region")    
+## 2016 data ##
+plot_ly(X2016,x = X2016$Region,y=X2016$`Happiness Score`,
+        type = "box", boxpoints ="all",pointpos = -1.8, color = X2016$Region)%>%
+  layout(xaxis=list(showticklabels = FALSE),margin = list(b=100),title ="2016 Happiness.Score by Region")
+```
+
+
+input data from 2016
+```{r}
+happy16_original = read_excel("2016.xlsx")
+str(happy16_original)
+happy16_ml = happy16_original[,c(1,4:12)]
+colnames(happy16_ml) <- c("Region","HScore", "LogGDP", "socialSupport", "Health", "Freedom", "Generosity","GovernmentTrust","positiveAffect","negativeAffect")
+happy16_ml = na.exclude(happy16_ml)
+str(happy16_ml)
+```
+
+
+
+Correlation test between Happiness score and all other variables. Visualization of correlation between variables and Happiness score. Result is similar to 2016 data.
+```{r}
+# eliminate Country name, region, happiness rank, lower & upper confidence interval
+print(corr.test(happy16_ml[,-c(1)], y = NULL, use = "pairwise",method="pearson",adjust="holm",alpha=.05), short = FALSE)
+# Correlation plot to visualize data
+cormatrix <- cor(as.matrix(happy16_ml[,-c(1)]))
+corrplot(cormatrix,method = "square")
+pairs.panels(data.frame(happy16_ml$HScore,happy16_ml$LogGDP,happy16_ml$socialSupport,happy16_ml$Health,happy16_ml$Freedom,happy16_ml$GovernmentTrust,happy16_ml$Generosity,happy16_ml$positiveAffect,happy16_ml$negativeAffect))
+```
+
+Compare data between 2015 and 2016 data. 
+```{r}
+# based on regression model above, only use the following factors to do classification
+# HScore, LogGDP, socialSupport, Health, GovernmentTrust, positiveAffect, negativeAffect
+happy15_ml <- happy15_ml[,-c(6,7)]
+happy16_ml <- happy16_ml[,-c(6,7)]
+happy15_ml$Region <- factor(happy15_ml$Region, levels = c("Australia and New Zealand","Central and Eastern Europe","Eastern Asia","Latin America and Caribbean","Middle East and Northern Africa","North America","Southeastern Asia","Southern Asia","Sub-Saharan Africa","Western Europe"), labels = c("Australia and New Zealand","Central and Eastern Europe","Eastern Asia","Latin America and Caribbean","Middle East and Northern Africa","North America","Southeastern Asia","Southern Asia","Sub-Saharan Africa","Western Europe"))
+str(happy15_ml)
+happy16_ml$Region <- factor(happy16_ml$Region, levels = c("Australia and New Zealand","Central and Eastern Europe","Eastern Asia","Latin America and Caribbean","Middle East and Northern Africa","North America","Southeastern Asia","Southern Asia","Sub-Saharan Africa","Western Europe"), labels = c("Australia and New Zealand","Central and Eastern Europe","Eastern Asia","Latin America and Caribbean","Middle East and Northern Africa","North America","Southeastern Asia","Southern Asia","Sub-Saharan Africa","Western Europe"))
+str(happy16_ml)
+round(prop.table(table(happy15_ml$Region))*100, digits = 1)
+round(prop.table(table(happy16_ml$Region))*100, digits = 1)
+```
+
+
+```{r}
+# Step 3: Use C5.0 model to predict 2016 data ----
+# Normalize data
+normalize <- function(x) {
+  return((x-min(x))/ (max(x)-min(x)))
+}
+happy15_ml_n <- as.data.frame(lapply(happy15_ml[2:8],normalize))
+happy16_ml_n <- as.data.frame(lapply(happy16_ml[2:8],normalize))
+summary(happy15_ml_n)
+summary(happy16_ml_n)
+# create training and test dataset
+happy_train <- happy15_ml_n
+happy_test <- happy16_ml_n
+happy_train_label <- happy15_ml$Region
+happy_test_label <- happy16_ml$Region
+# training a C5.0 model on the data
+library(C50)
+happy_model <- C5.0(happy_train, happy_train_label)
+summary(happy_model)
+# Step 4: Evaulate the prediction throught residuals performance
+happy_pred <- predict(happy_model, happy_test)
+# cross tabulation of predicted versus actual classes
+# accuracy rate = (20+3+12+3+30+19)/121= 87/121 = 71.90 %
+library(gmodels)
+CrossTable(happy_test_label, happy_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
+# Step 5: boosted the accuracy of decision tree with 10 trials
+happy_model_boost10 <- C5.0(happy_train, happy_train_label, trials = 20)
+summary(happy_model_boost10)
+happy_pred_boost10 <- predict(happy_model_boost10, happy_test)
+# accuracy rate = (20+3+12+3+3+30+19)/121= 90/121 = 74.38 %
+CrossTable(happy_test_label, happy_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,dnn = c('actual default', 'predicted default'))
+```
+
+
+## linear regression prediction ##
+```{r}
+happy_pred_linear <- predict(happy15_lm,happy16_ml)
+happy_pred_residual = happy_pred_linear-happy16_ml$HScore
+summary(happy_pred_linear)
+summary(happy16_ml$HScore)
+summary(happy_pred_residual)
+plot(happy_pred_linear, happy16_ml$HScore)
+abline(0,1)
+plot(happy_pred_residual)
+abline(0,0)
+# Mean Absolute Error
+MAE <- function(actual,predicted) {mean(abs(actual-predicted))}
+MAE(happy16_ml$HScore, happy_pred_linear)
+```
+```
+
+
